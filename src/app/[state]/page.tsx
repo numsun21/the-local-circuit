@@ -1,12 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
+import { notFound } from 'next/navigation'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const VALID_STATES = ['ohio', 'texas', 'california', 'florida', 'new-york', 'pennsylvania', 'illinois', 'michigan', 'georgia', 'indiana', 'kentucky', 'tennessee', 'virginia', 'north-carolina', 'south-carolina', 'alabama', 'mississippi', 'arkansas', 'louisiana', 'missouri', 'iowa', 'wisconsin', 'minnesota', 'colorado', 'arizona', 'nevada', 'oregon', 'washington']
+
 export default async function StatePage({ params }: { params: Promise<{ state: string }> }) {
   const { state } = await params
+  if (!VALID_STATES.includes(state.toLowerCase())) notFound()
+
   const stateName = state.charAt(0).toUpperCase() + state.slice(1)
   const { data: articles } = await supabase.from('articles').select('*').ilike('state', state).order('published_at', { ascending: false })
 
@@ -49,7 +54,7 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
             <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: '#f9f9f7', border: '0.5px solid #e8e8e4' }}>
               <p style={{ fontSize: '14px', fontWeight: 700, marginBottom: '0.4rem' }}>Cover {stateName}</p>
               <p style={{ fontSize: '12px', color: '#888', marginBottom: '1rem', lineHeight: 1.6 }}>We are looking for student writers in every city.</p>
-              <a href="/submit" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', textDecoration: 'none', borderBottom: '1px solid #1a1a1a', paddingBottom: '1px' }}>Submit a story</a>
+              <a href="/submit" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', textDecoration: 'none', borderBottom: '1px solid #1a1a1a', paddingBottom: '1px' }}>Submit a story →</a>
             </div>
           </div>
         </aside>
