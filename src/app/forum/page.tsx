@@ -38,15 +38,14 @@ export default function ForumPage() {
 
   const handleSelectPost = (post: any) => { setSelected(post); fetchComments(String(post.id)) }
 
-  const handleUpvote = async (e: React.MouseEvent, post: any) => {
-    e.stopPropagation()
-    if (votedIds.has(post.id)) return
-    const newVotes = (post.upvotes || 0) + 1
-    const { error } = await supabase.from('forum_posts').update({ upvotes: newVotes }).eq('id', post.id)
+  const handleUpvote = async (postId: string, currentVotes: number) => {
+    if (votedIds.has(postId)) return
+    const newVotes = currentVotes + 1
+    const { error } = await supabase.from('forum_posts').update({ upvotes: newVotes }).eq('id', postId)
     if (!error) {
-      setVotedIds(prev => new Set([...prev, post.id]))
-      setPosts(posts.map(p => p.id === post.id ? { ...p, upvotes: newVotes } : p))
-      if (selected?.id === post.id) setSelected({ ...selected, upvotes: newVotes })
+      setVotedIds(prev => new Set([...prev, postId]))
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, upvotes: newVotes } : p))
+      if (selected?.id === postId) setSelected((prev: any) => ({ ...prev, upvotes: newVotes }))
     }
   }
 
@@ -111,14 +110,14 @@ export default function ForumPage() {
     .sort-btns{display:flex;gap:0;border:1px solid #e0e0da;border-radius:4px;overflow:hidden;}
     .sort-btn{padding:6px 14px;background:#fff;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;color:#999;cursor:pointer;transition:all 0.15s;}
     .sort-btn.on{background:#1a1a1a;color:#fff;}
-    .post-card{border:1px solid #e8e8e4;background:#fff;padding:1.25rem 1.5rem;margin-bottom:0.75rem;cursor:pointer;transition:all 0.18s;position:relative;display:flex;gap:1rem;}
-    .post-card:hover{border-color:#bbb;box-shadow:0 2px 12px rgba(0,0,0,0.06);transform:translateY(-1px);}
+    .post-card{border:1px solid #e8e8e4;background:#fff;padding:1.25rem 1.5rem;margin-bottom:0.75rem;position:relative;display:flex;gap:1rem;}
+    .post-card-body{flex:1;min-width:0;cursor:pointer;}
+    .post-card:hover{border-color:#bbb;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
     .vote-col{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding-top:2px;}
-    .vote-btn{background:none;border:1px solid #e0e0da;width:32px;height:32px;cursor:pointer;font-size:14px;color:#ccc;transition:all 0.15s;border-radius:2px;display:flex;align-items:center;justify-content:center;}
+    .vote-btn{background:none;border:1px solid #e0e0da;width:32px;height:32px;cursor:pointer;font-size:14px;color:#ccc;transition:all 0.15s;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
     .vote-btn:hover{border-color:#1a1a1a;color:#1a1a1a;}
     .vote-btn.voted{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
     .vote-count{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#1a1a1a;}
-    .post-content{flex:1;min-width:0;}
     .post-top{display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;}
     .cat-badge{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;color:#666;background:#f0f0ec;padding:2px 8px;border-radius:2px;}
     .post-city{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;letter-spacing:0.05em;}
@@ -126,16 +125,13 @@ export default function ForumPage() {
     .post-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;line-height:1.35;margin-bottom:0.4rem;color:#1a1a1a;}
     .post-author{font-family:'DM Mono',monospace;font-size:11px;color:#bbb;}
     .post-preview{font-size:13px;color:#777;line-height:1.55;margin-top:0.5rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .post-footer{display:flex;align-items:center;gap:1rem;margin-top:0.75rem;}
-    .reply-count{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;letter-spacing:0.08em;}
     .hot-tag{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;padding:2px 6px;border-radius:2px;}
     .sb-section{margin-bottom:2rem;}
     .sb-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.18em;color:#999;margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid #e8e8e4;}
-    .trending-item{padding:0.75rem 0;border-bottom:1px solid #f0f0ec;cursor:pointer;transition:all 0.15s;}
+    .trending-item{padding:0.75rem 0;border-bottom:1px solid #f0f0ec;cursor:pointer;}
     .trending-item:last-child{border-bottom:none;}
-    .trending-item:hover .trending-title{color:#666;}
     .trending-num{font-family:'DM Mono',monospace;font-size:11px;color:#ddd;margin-bottom:0.25rem;}
-    .trending-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.3;transition:color 0.15s;}
+    .trending-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.3;}
     .trending-meta{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;margin-top:0.2rem;}
     .city-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #f0f0ec;}
     .city-row:last-child{border-bottom:none;}
@@ -143,7 +139,7 @@ export default function ForumPage() {
     .city-c{font-family:'DM Mono',monospace;font-size:11px;color:#bbb;}
     .modal{position:fixed;inset:0;background:#fafaf8;z-index:200;overflow-y:auto;}
     .modal-inner{max-width:720px;margin:0 auto;padding:2rem 1.5rem;}
-    .modal-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:11px;color:#999;cursor:pointer;letter-spacing:0.1em;margin-bottom:2rem;padding:0;transition:color 0.15s;}
+    .modal-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:11px;color:#999;cursor:pointer;letter-spacing:0.1em;margin-bottom:2rem;padding:0;}
     .modal-back:hover{color:#1a1a1a;}
     .modal-meta{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.75rem;}
     .modal-title{font-family:'Playfair Display',serif;font-size:36px;font-weight:900;line-height:1.2;margin-bottom:0.75rem;}
@@ -157,8 +153,7 @@ export default function ForumPage() {
     .inp:focus{border-color:#1a1a1a;background:#fff;}
     .inp-group{margin-bottom:0.75rem;}
     .inp-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;color:#999;display:block;margin-bottom:0.35rem;}
-    .submit-comment-btn{background:#1a1a1a;color:#fff;border:none;padding:10px 24px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-radius:2px;transition:background 0.15s;float:right;}
-    .submit-comment-btn:hover{background:#333;}
+    .submit-comment-btn{background:#1a1a1a;color:#fff;border:none;padding:10px 24px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-radius:2px;float:right;}
     .comment-card{border-left:2px solid #e8e8e4;padding:0.75rem 1rem;margin-bottom:1rem;}
     .comment-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:#1a1a1a;margin-bottom:0.35rem;}
     .comment-body{font-size:14px;line-height:1.65;color:#555;}
@@ -168,8 +163,7 @@ export default function ForumPage() {
     .form-title{font-family:'Playfair Display',serif;font-size:40px;font-weight:900;margin-bottom:0.25rem;}
     .form-sub{color:#999;font-size:14px;margin-bottom:2rem;}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
-    .big-submit{width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.05em;cursor:pointer;border-radius:2px;transition:background 0.15s;margin-top:0.5rem;}
-    .big-submit:hover{background:#333;}
+    .big-submit{width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border-radius:2px;margin-top:0.5rem;}
     .empty{text-align:center;padding:5rem 0;color:#ccc;font-family:'Playfair Display',serif;font-style:italic;font-size:20px;}
   `
 
@@ -220,7 +214,10 @@ export default function ForumPage() {
           <div className="modal-byline">
             <span>By {selected.name} · {selected.school}</span>
             <div style={{display:'flex',alignItems:'center',gap:'0.5rem',marginLeft:'auto'}}>
-              <button className={`vote-btn${votedIds.has(selected.id)?' voted':''}`} onClick={(e)=>{e.stopPropagation();e.preventDefault();handleUpvote(e,selected)}}>▲</button>
+              <button
+                className={`vote-btn${votedIds.has(selected.id)?' voted':''}`}
+                onClick={() => handleUpvote(selected.id, selected.upvotes||0)}
+              >▲</button>
               <span style={{fontFamily:'DM Mono,monospace',fontSize:'14px',fontWeight:500}}>{selected.upvotes||0} votes</span>
             </div>
           </div>
@@ -277,16 +274,19 @@ export default function ForumPage() {
             </div>
           </div>
           {filtered.length===0 ? (
-            <div className="empty">No discussions yet in this category.<br/><br/>
-              <button className="post-btn" style={{fontFamily:'DM Sans,sans-serif'}} onClick={()=>{setShowForm(true);setSubmitted(false)}}>Be the first to post</button>
+            <div className="empty">No discussions yet.<br/><br/>
+              <button className="post-btn" onClick={()=>{setShowForm(true);setSubmitted(false)}}>Be the first to post</button>
             </div>
           ) : filtered.map(p=>(
-            <div key={p.id} className="post-card" onClick={()=>handleSelectPost(p)}>
+            <div key={p.id} className="post-card">
               <div className="vote-col">
-                <button className={`vote-btn${votedIds.has(p.id)?' voted':''}`} onClick={(e)=>{e.stopPropagation();e.preventDefault();handleUpvote(e,p)}}>▲</button>
+                <button
+                  className={`vote-btn${votedIds.has(p.id)?' voted':''}`}
+                  onClick={() => handleUpvote(p.id, p.upvotes||0)}
+                >▲</button>
                 <span className="vote-count">{p.upvotes||0}</span>
               </div>
-              <div className="post-content">
+              <div className="post-card-body" onClick={()=>handleSelectPost(p)}>
                 <div className="post-top">
                   <span className="cat-badge">{(p.category||'OTHER').toUpperCase()}</span>
                   <span className="post-city">{p.city}</span>
