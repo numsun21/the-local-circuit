@@ -220,7 +220,7 @@ export default function ForumPage() {
           <div className="modal-byline">
             <span>By {selected.name} · {selected.school}</span>
             <div style={{display:'flex',alignItems:'center',gap:'0.5rem',marginLeft:'auto'}}>
-              <button className={`vote-btn${votedIds.has(selected.id)?' voted':''}`} onClick={e=>handleUpvote(e,selected)}>▲</button>
+              <button className={`vote-btn${votedIds.has(selected.id)?' voted':''}`} onClick={(e)=>{e.stopPropagation();e.preventDefault();handleUpvote(e,selected)}}>▲</button>
               <span style={{fontFamily:'DM Mono,monospace',fontSize:'14px',fontWeight:500}}>{selected.upvotes||0} votes</span>
             </div>
           </div>
@@ -283,7 +283,7 @@ export default function ForumPage() {
           ) : filtered.map(p=>(
             <div key={p.id} className="post-card" onClick={()=>handleSelectPost(p)}>
               <div className="vote-col">
-                <button className={`vote-btn${votedIds.has(p.id)?' voted':''}`} onClick={e=>handleUpvote(e,p)}>▲</button>
+                <button className={`vote-btn${votedIds.has(p.id)?' voted':''}`} onClick={(e)=>{e.stopPropagation();e.preventDefault();handleUpvote(e,p)}}>▲</button>
                 <span className="vote-count">{p.upvotes||0}</span>
               </div>
               <div className="post-content">
