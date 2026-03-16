@@ -58,7 +58,7 @@ export default function ForumPage() {
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!comment.trim() || !commentName.trim()) return
-    const { error } = await supabase.from('forum_comments').insert([{ post_id: selected.id, name: commentName, body: comment }])
+    const { error } = await supabase.from('forum_comments').insert([{ post_id: String(selected.id), name: commentName, body: comment }])
     if (!error) { setComment(''); setCommentName(''); fetchComments(selected.id) }
     else alert('Error posting comment: ' + error.message)
   }
