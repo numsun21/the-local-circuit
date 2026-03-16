@@ -27,7 +27,7 @@ export default async function Home() {
           <a href="/ohio/counties" style={{ color: 'inherit', textDecoration: 'none' }}>Counties</a>
           <a href="/ohio/cities" style={{ color: 'inherit', textDecoration: 'none' }}>Cities</a>
           <a href="/search" style={{ color: 'inherit', textDecoration: 'none' }}>Search</a><a href="/forum" style={{ color: 'inherit', textDecoration: 'none' }}>Forum</a>
-          <a href="/submit" style={{ color: 'inherit', textDecoration: 'none' }}>Submit</a>
+          <a href="/submit" style={{ color: 'inherit', textDecoration: 'none' }}>Submit</a></nav><AuthNav /></div>
         </nav>
       </div>
 
