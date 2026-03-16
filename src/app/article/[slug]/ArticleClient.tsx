@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function ArticleClient({ article, related, comments: initialComments }: { article: any, related: any[], comments: any[] }) {
@@ -9,6 +9,8 @@ export default function ArticleClient({ article, related, comments: initialComme
   const [comments, setComments] = useState(initialComments)
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
+  const [views, setViews] = useState(article.views || 0)
+  const counted = useRef(false)
 
   const formatted = new Date(article.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const timeAgo = (d: string) => {
@@ -30,6 +32,14 @@ export default function ArticleClient({ article, related, comments: initialComme
         setBookmarked(!!bm)
       }
     })
+    if (!counted.current) {
+      counted.current = true
+      fetch('/api/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: article.slug })
+      }).then(r => r.json()).then(d => setViews(d.views))
+    }
   }, [article.slug])
 
   const handleBookmark = async () => {
@@ -84,19 +94,18 @@ export default function ArticleClient({ article, related, comments: initialComme
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '14px', color: '#444' }}>By <strong>{article.author}</strong></span>
               <span style={{ fontSize: '13px', color: '#999' }}>{formatted}</span>
+              <span style={{ fontSize: '12px', color: '#bbb', fontFamily: 'Georgia, serif' }}>{views.toLocaleString()} {views === 1 ? 'view' : 'views'}</span>
               <button onClick={handleBookmark} style={{ marginLeft: 'auto', background: 'none', border: '0.5px solid #ddd', padding: '6px 14px', fontSize: '12px', cursor: 'pointer', borderRadius: '2px', color: bookmarked ? '#1a1a1a' : '#999', fontFamily: 'Georgia, serif', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 {bookmarked ? '★ Saved' : '☆ Save'}
               </button>
             </div>
           </div>
-
           <div style={{ fontSize: '18px', lineHeight: 2.0, color: '#222', whiteSpace: 'pre-wrap' }}>{article.content}</div>
-
           <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '0.5px solid #e0e0e0' }}>
             <h2 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '1.5rem' }}>Responses ({comments.length})</h2>
             {user ? (
               <form onSubmit={handleComment} style={{ marginBottom: '2rem', background: '#f9f9f7', border: '0.5px solid #e8e8e4', padding: '1.25rem' }}>
-                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#999', marginBottom: '0.75rem' }}>Leave a response as <strong>{profile?.name || user.email}</strong></p>
+                <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#999', marginBottom: '0.75rem' }}>Responding as <strong>{profile?.name || user.email}</strong></p>
                 <textarea required rows={4} value={comment} onChange={e => setComment(e.target.value)} placeholder="Share your thoughts..." style={{ width: '100%', padding: '10px 12px', border: '0.5px solid #ddd', fontSize: '15px', fontFamily: 'Georgia, serif', outline: 'none', resize: 'vertical', background: '#fff', marginBottom: '0.75rem' }} />
                 <button type="submit" disabled={loading} style={{ padding: '10px 24px', background: '#1a1a1a', color: '#fff', border: 'none', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer', borderRadius: '2px', fontFamily: 'Georgia, serif' }}>
                   {loading ? 'Posting...' : 'Post Response'}
@@ -117,7 +126,6 @@ export default function ArticleClient({ article, related, comments: initialComme
             ))}
           </div>
         </article>
-
         <aside>
           <div style={{ position: 'sticky', top: '2rem' }}>
             <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#999', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '0.5px solid #e0e0e0' }}>More Stories</p>
