@@ -19,7 +19,7 @@ export default async function Home() {
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   return (
-    <main style={{ fontFamily: 'Georgia, serif', maxWidth: '900px', margin: '0 auto', padding: '0 1.5rem 3rem' }}>
+    <><style>{`@import url('https://fonts.googleapis.com/css2?family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap');`}</style><main style={{ fontFamily: 'Georgia, serif', maxWidth: '900px', margin: '0 auto', padding: '0 1.5rem 3rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0 0.75rem', borderBottom: '0.5px solid #ccc', fontSize: '12px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         <span style={{ fontStyle: 'italic' }}>Sunday, March 15, 2026</span>
         <nav style={{ display: 'flex', gap: '1.25rem' }}>
@@ -79,6 +79,6 @@ export default async function Home() {
         </div>
         <a href="/submit" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '10px 20px', borderRadius: '8px', background: '#111', color: '#fff', textDecoration: 'none' }}>Submit a story</a>
       </div>
-    </main>
+    </main></>
   )
 }
