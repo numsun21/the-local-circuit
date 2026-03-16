@@ -19,12 +19,12 @@ export default function Home() {
       }}>
         <span style={{ fontStyle: 'italic' }}>Sunday, March 15, 2026</span>
         <nav style={{ display: 'flex', gap: '1.25rem' }}>
-          <span>Ohio</span>
-          <span>Counties</span>
-          <span>Cities</span>
-          <span>Forum</span>
-          <span>Submit</span>
-        </nav>
+         <a href="/ohio" style={{ color: 'inherit', textDecoration: 'none' }}>Ohio</a>
+         <a href="/ohio/counties" style={{ color: 'inherit', textDecoration: 'none' }}>Counties</a>
+         <a href="/ohio/cities" style={{ color: 'inherit', textDecoration: 'none' }}>Cities</a>
+         <a href="/forum" style={{ color: 'inherit', textDecoration: 'none' }}>Forum</a>
+         <a href="/submit" style={{ color: 'inherit', textDecoration: 'none' }}>Submit</a>
+</nav>
       </div>
 
       <div style={{ textAlign: 'center', padding: '2rem 0 1.25rem', borderBottom: '3px double #333' }}>
