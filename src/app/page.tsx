@@ -41,7 +41,7 @@ export default async function Home() {
           <div>
             <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#666', margin: 0 }}>{main.city} · {main.state}</p>
             <a href={`/article/${main.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-              <h2 style={{ fontSize: '32px', fontWeight: 700, lineHeight: 1.15, margin: '0.5rem 0' }}>{main.title}</h2>
+              <h2 style={{ fontSize: '32px', fontWeight: 700, lineHeight: 1.15, margin: '0.5rem 0' }}>{main.titles}</h2>
             </a>
             <p style={{ fontSize: '13px', color: '#666' }}>By {main.author} · {formatDate(main.published_at)}</p>
           </div>
@@ -50,7 +50,7 @@ export default async function Home() {
               <div key={a.id} style={{ paddingBottom: '1rem', borderBottom: '0.5px solid #ddd' }}>
                 <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#666', margin: 0 }}>{a.city} · {a.state}</p>
                 <a href={`/article/${a.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, lineHeight: 1.25, margin: '0.3rem 0 0' }}>{a.title}</h3>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, lineHeight: 1.25, margin: '0.3rem 0 0' }}>{a.titles}</h3>
                 </a>
               </div>
             ))}
@@ -64,7 +64,7 @@ export default async function Home() {
             <div key={a.id}>
               <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#666', margin: 0 }}>{a.city}</p>
               <a href={`/article/${a.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: 700, lineHeight: 1.25, margin: '0.4rem 0' }}>{a.title}</h4>
+                <h4 style={{ fontSize: '15px', fontWeight: 700, lineHeight: 1.25, margin: '0.4rem 0' }}>{a.titles}</h4>
               </a>
               <p style={{ fontSize: '12px', color: '#666' }}>By {a.author}</p>
             </div>

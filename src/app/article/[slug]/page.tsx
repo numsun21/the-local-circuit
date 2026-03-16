@@ -20,7 +20,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     <main style={{ fontFamily: 'Georgia, serif', maxWidth: '700px', margin: '0 auto', padding: '2rem 1.5rem' }}>
       <a href="/" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', textDecoration: 'none' }}>← The Local Circuit</a>
       <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', margin: '1rem 0 0.5rem' }}>{article.city} · {article.state}</p>
-      <h1 style={{ fontSize: '48px', fontWeight: 900, lineHeight: 1.1, marginBottom: '1rem' }}>{article.title}</h1>
+      <h1 style={{ fontSize: '48px', fontWeight: 900, lineHeight: 1.1, marginBottom: '1rem' }}>{article.titles}</h1>
       <p style={{ fontSize: '13px', color: '#666', marginBottom: '2rem', paddingBottom: '2rem', borderBottom: '0.5px solid #ddd' }}>
         By {article.author} · {new Date(article.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
       </p>
