@@ -10,6 +10,7 @@ const supabase = createClient(
 export default function SubmitPage() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', school: '', city: '', title: '', article: ''
   })
@@ -37,7 +38,18 @@ export default function SubmitPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.from('submissions').insert([form])
+    setError('')
+    const { error } = await supabase.from('submissions').insert([{
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email,
+      school: form.school,
+      city: form.city,
+      title: form.title,
+      article: form.article,
+      status: 'pending',
+      published: false,
+    }])
     if (!error) {
       fetch('/api/notify', {
         method: 'POST',
@@ -46,7 +58,7 @@ export default function SubmitPage() {
       })
       setSubmitted(true)
     } else {
-      alert('Something went wrong. Please try again.')
+      setError('Error: ' + error.message)
     }
     setLoading(false)
   }
@@ -66,6 +78,8 @@ export default function SubmitPage() {
       <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#999', marginBottom: '0.5rem', marginTop: '1.5rem' }}>Contribute</p>
       <h1 style={{ fontSize: '48px', fontWeight: 900, margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Submit a Story</h1>
       <p style={{ fontStyle: 'italic', color: '#888', marginBottom: '2rem', fontSize: '15px' }}>Tell us what's happening in your community.</p>
+
+      {error && <p style={{ color: '#c0392b', fontSize: '13px', marginBottom: '1rem', padding: '10px 14px', background: '#fdf5f5', border: '0.5px solid #f5c6c6', borderRadius: '2px' }}>{error}</p>}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
