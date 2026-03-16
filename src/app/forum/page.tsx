@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -8,10 +8,6 @@ const supabase = createClient(
 )
 
 const CATEGORIES = ['All', 'Education', 'Housing', 'Environment', 'Politics', 'Transit', 'Safety', 'Other']
-const CAT_COLORS: Record<string, string> = {
-  Education: '#00f5d4', Housing: '#f72585', Environment: '#70e000',
-  Politics: '#f8961e', Transit: '#4cc9f0', Safety: '#ffd60a', Other: '#b5b5b5', All: '#fff'
-}
 
 export default function ForumPage() {
   const [posts, setPosts] = useState<any[]>([])
@@ -25,11 +21,13 @@ export default function ForumPage() {
   const [commentName, setCommentName] = useState('')
   const [comments, setComments] = useState<any[]>([])
   const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
+  const [sortBy, setSortBy] = useState<'hot'|'new'>('hot')
+  const commentRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { fetchPosts() }, [])
 
   const fetchPosts = async () => {
-    const { data } = await supabase.from('forum_posts').select('*').order('upvotes', { ascending: false })
+    const { data } = await supabase.from('forum_posts').select('*').order('created_at', { ascending: false })
     setPosts(data || [])
   }
 
@@ -38,10 +36,7 @@ export default function ForumPage() {
     setComments(data || [])
   }
 
-  const handleSelectPost = (post: any) => {
-    setSelected(post)
-    fetchComments(String(post.id))
-  }
+  const handleSelectPost = (post: any) => { setSelected(post); fetchComments(String(post.id)) }
 
   const handleUpvote = async (e: React.MouseEvent, post: any) => {
     e.stopPropagation()
@@ -80,144 +75,167 @@ export default function ForumPage() {
     return `${Math.floor(diff/86400)}d ago`
   }
 
-  const heatLevel = (votes: number) => {
-    if (votes >= 20) return { label: 'VIRAL', color: '#f72585', glow: '0 0 24px #f72585aa' }
-    if (votes >= 10) return { label: 'HOT', color: '#f8961e', glow: '0 0 18px #f8961eaa' }
-    if (votes >= 5) return { label: 'RISING', color: '#00f5d4', glow: '0 0 14px #00f5d4aa' }
-    return { label: 'NEW', color: '#555', glow: 'none' }
-  }
+  const filtered = (category === 'All' ? posts : posts.filter(p => p.category === category))
+    .slice().sort((a, b) => sortBy === 'hot' ? (b.upvotes||0) - (a.upvotes||0) : new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  const topCities = [...new Set(posts.map(p => p.city).filter(Boolean))].slice(0, 6)
-  const filtered = category === 'All' ? posts : posts.filter(p => p.category === category)
+  const topCities = Object.entries(
+    posts.reduce((acc: Record<string,number>, p) => { if(p.city) acc[p.city] = (acc[p.city]||0)+1; return acc }, {})
+  ).sort((a,b) => b[1]-a[1]).slice(0,5)
 
-  const styles = `
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #080b10; }
-    .forum-root { min-height: 100vh; background: #080b10; color: #e0e0e0; font-family: 'Syne', sans-serif; }
-    .scanline { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); pointer-events: none; z-index: 0; }
-    .topbar { border-bottom: 1px solid #1a2030; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; background: rgba(8,11,16,0.95); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; }
-    .logo { font-family: 'Space Mono', monospace; font-size: 13px; color: #00f5d4; letter-spacing: 0.2em; text-decoration: none; }
-    .logo span { color: #555; }
-    .new-post-btn { background: transparent; border: 1px solid #00f5d4; color: #00f5d4; padding: 8px 18px; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.15em; cursor: pointer; transition: all 0.2s; clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%); }
-    .new-post-btn:hover { background: #00f5d4; color: #080b10; }
-    .layout { display: grid; grid-template-columns: 1fr 260px; gap: 1.5rem; max-width: 1100px; margin: 0 auto; padding: 1.5rem; position: relative; z-index: 1; }
-    .cat-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-    .cat-btn { padding: 5px 14px; background: transparent; border: 1px solid #1e2535; color: #666; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s; border-radius: 2px; }
-    .cat-btn.active { border-color: var(--cat-color); color: var(--cat-color); box-shadow: 0 0 10px var(--cat-color-alpha); }
-    .post-card { background: #0d1117; border: 1px solid #1a2030; padding: 1rem 1.25rem; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; margin-bottom: 0.75rem; }
-    .post-card:hover { border-color: #2a3550; transform: translateX(3px); }
-    .post-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cat-color); box-shadow: 0 0 8px var(--cat-color); }
-    .post-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-    .post-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
-    .cat-tag { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.12em; padding: 2px 8px; border: 1px solid; border-radius: 2px; }
-    .city-tag { font-size: 11px; color: #555; font-family: 'Space Mono', monospace; }
-    .time-tag { font-size: 11px; color: #333; font-family: 'Space Mono', monospace; margin-left: auto; }
-    .post-title { font-size: 16px; font-weight: 700; color: #dde; margin-bottom: 0.3rem; line-height: 1.4; }
-    .post-author { font-size: 12px; color: #445; font-family: 'Space Mono', monospace; }
-    .heat-col { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-width: 48px; }
-    .heat-btn { background: none; border: 1px solid #1e2535; color: #333; width: 36px; height: 36px; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; clip-path: polygon(50% 0%, 100% 100%, 0% 100%); }
-    .heat-btn:hover { border-color: #00f5d4; color: #00f5d4; }
-    .heat-btn.voted { border-color: #00f5d4; color: #00f5d4; background: rgba(0,245,212,0.1); }
-    .heat-count { font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; }
-    .heat-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.15em; }
-    .sidebar { position: sticky; top: 80px; height: fit-content; }
-    .sidebar-card { background: #0d1117; border: 1px solid #1a2030; padding: 1.25rem; margin-bottom: 1rem; }
-    .sidebar-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #00f5d4; margin-bottom: 1rem; }
-    .city-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #1a2030; cursor: pointer; }
-    .city-item:last-child { border-bottom: none; }
-    .city-name { font-size: 13px; color: #aaa; }
-    .city-count { font-family: 'Space Mono', monospace; font-size: 11px; color: #444; }
-    .stat-row { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #0f1520; }
-    .stat-label { font-size: 12px; color: #555; }
-    .stat-val { font-family: 'Space Mono', monospace; font-size: 12px; color: #00f5d4; }
-    .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #00f5d4; animation: pulse 2s infinite; margin-right: 6px; }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
-    .modal-bg { position: fixed; inset: 0; background: rgba(8,11,16,0.97); z-index: 200; overflow-y: auto; }
-    .modal-inner { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem; }
-    .back-btn { background: none; border: none; color: #555; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.15em; cursor: pointer; margin-bottom: 2rem; }
-    .back-btn:hover { color: #00f5d4; }
-    .modal-title { font-size: 28px; font-weight: 800; color: #eef; margin-bottom: 0.5rem; line-height: 1.3; }
-    .modal-body { font-size: 15px; line-height: 1.8; color: #99a; margin-top: 1.25rem; }
-    .divider { border: none; border-top: 1px solid #1a2030; margin: 2rem 0; }
-    .comment-card { background: #0d1117; border: 1px solid #1a2030; border-left: 3px solid #00f5d4; padding: 1rem; margin-bottom: 0.75rem; }
-    .comment-name { font-family: 'Space Mono', monospace; font-size: 11px; color: #00f5d4; margin-bottom: 0.4rem; }
-    .comment-body { font-size: 14px; line-height: 1.6; color: #99a; }
-    .comment-time { font-family: 'Space Mono', monospace; font-size: 10px; color: #333; margin-top: 0.5rem; }
-    .form-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: #555; display: block; margin-bottom: 0.4rem; }
-    .form-input { width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #1e2535; color: #dde; font-family: 'Syne', sans-serif; font-size: 14px; border-radius: 2px; outline: none; transition: border-color 0.2s; }
-    .form-input:focus { border-color: #00f5d4; }
-    .form-group { margin-bottom: 1rem; }
-    .submit-btn { width: 100%; padding: 13px; background: transparent; border: 1px solid #00f5d4; color: #00f5d4; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.2em; cursor: pointer; transition: all 0.2s; clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%); }
-    .submit-btn:hover { background: #00f5d4; color: #080b10; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .section-header { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #555; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
-    .empty-state { text-align: center; padding: 4rem 0; color: #333; font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 0.1em; }
+  const trending = [...posts].sort((a,b) => (b.upvotes||0)-(a.upvotes||0)).slice(0,4)
+
+  const s = `
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    .fr{font-family:'DM Sans',sans-serif;background:#fafaf8;min-height:100vh;color:#1a1a1a;}
+    .topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:0 2rem;display:flex;justify-content:space-between;align-items:center;height:56px;position:sticky;top:0;z-index:100;}
+    .back-link{font-family:'DM Mono',monospace;font-size:11px;color:#999;text-decoration:none;letter-spacing:0.08em;transition:color 0.15s;}
+    .back-link:hover{color:#1a1a1a;}
+    .post-btn{background:#1a1a1a;color:#fff;border:none;padding:9px 20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-radius:2px;transition:background 0.15s;}
+    .post-btn:hover{background:#333;}
+    .hero{background:#fff;border-bottom:3px double #e8e8e4;padding:2.5rem 2rem 2rem;text-align:center;}
+    .hero-eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.18em;color:#999;text-transform:uppercase;margin-bottom:0.75rem;}
+    .hero-title{font-family:'Playfair Display',serif;font-size:52px;font-weight:900;letter-spacing:-0.02em;line-height:1;}
+    .hero-sub{font-style:italic;color:#888;font-size:15px;margin-top:0.5rem;font-family:'Playfair Display',serif;}
+    .hero-stats{display:flex;justify-content:center;gap:3rem;margin-top:1.75rem;padding-top:1.5rem;border-top:1px solid #e8e8e4;}
+    .stat{text-align:center;}
+    .stat-n{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;}
+    .stat-l{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;color:#999;margin-top:0.2rem;}
+    .layout{display:grid;grid-template-columns:1fr 300px;gap:0;max-width:1200px;margin:0 auto;}
+    .main{padding:2rem;border-right:1px solid #e8e8e4;}
+    .sidebar{padding:1.75rem 1.5rem;background:#fafaf8;}
+    .controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #e8e8e4;}
+    .cat-pills{display:flex;gap:0.4rem;flex-wrap:wrap;}
+    .cat-pill{padding:5px 13px;border:1px solid #e0e0da;background:#fff;color:#888;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;cursor:pointer;border-radius:20px;transition:all 0.15s;}
+    .cat-pill.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
+    .sort-btns{display:flex;gap:0;border:1px solid #e0e0da;border-radius:4px;overflow:hidden;}
+    .sort-btn{padding:6px 14px;background:#fff;border:none;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;color:#999;cursor:pointer;transition:all 0.15s;}
+    .sort-btn.on{background:#1a1a1a;color:#fff;}
+    .post-card{border:1px solid #e8e8e4;background:#fff;padding:1.25rem 1.5rem;margin-bottom:0.75rem;cursor:pointer;transition:all 0.18s;position:relative;display:flex;gap:1rem;}
+    .post-card:hover{border-color:#bbb;box-shadow:0 2px 12px rgba(0,0,0,0.06);transform:translateY(-1px);}
+    .vote-col{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding-top:2px;}
+    .vote-btn{background:none;border:1px solid #e0e0da;width:32px;height:32px;cursor:pointer;font-size:14px;color:#ccc;transition:all 0.15s;border-radius:2px;display:flex;align-items:center;justify-content:center;}
+    .vote-btn:hover{border-color:#1a1a1a;color:#1a1a1a;}
+    .vote-btn.voted{background:#1a1a1a;color:#fff;border-color:#1a1a1a;}
+    .vote-count{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:#1a1a1a;}
+    .post-content{flex:1;min-width:0;}
+    .post-top{display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;}
+    .cat-badge{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;color:#666;background:#f0f0ec;padding:2px 8px;border-radius:2px;}
+    .post-city{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;letter-spacing:0.05em;}
+    .post-time{font-family:'DM Mono',monospace;font-size:10px;color:#ccc;margin-left:auto;}
+    .post-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;line-height:1.35;margin-bottom:0.4rem;color:#1a1a1a;}
+    .post-author{font-family:'DM Mono',monospace;font-size:11px;color:#bbb;}
+    .post-preview{font-size:13px;color:#777;line-height:1.55;margin-top:0.5rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .post-footer{display:flex;align-items:center;gap:1rem;margin-top:0.75rem;}
+    .reply-count{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;letter-spacing:0.08em;}
+    .hot-tag{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;padding:2px 6px;border-radius:2px;}
+    .sb-section{margin-bottom:2rem;}
+    .sb-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.18em;color:#999;margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid #e8e8e4;}
+    .trending-item{padding:0.75rem 0;border-bottom:1px solid #f0f0ec;cursor:pointer;transition:all 0.15s;}
+    .trending-item:last-child{border-bottom:none;}
+    .trending-item:hover .trending-title{color:#666;}
+    .trending-num{font-family:'DM Mono',monospace;font-size:11px;color:#ddd;margin-bottom:0.25rem;}
+    .trending-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.3;transition:color 0.15s;}
+    .trending-meta{font-family:'DM Mono',monospace;font-size:10px;color:#bbb;margin-top:0.2rem;}
+    .city-row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #f0f0ec;}
+    .city-row:last-child{border-bottom:none;}
+    .city-n{font-size:13px;color:#444;}
+    .city-c{font-family:'DM Mono',monospace;font-size:11px;color:#bbb;}
+    .modal{position:fixed;inset:0;background:#fafaf8;z-index:200;overflow-y:auto;}
+    .modal-inner{max-width:720px;margin:0 auto;padding:2rem 1.5rem;}
+    .modal-back{background:none;border:none;font-family:'DM Mono',monospace;font-size:11px;color:#999;cursor:pointer;letter-spacing:0.1em;margin-bottom:2rem;padding:0;transition:color 0.15s;}
+    .modal-back:hover{color:#1a1a1a;}
+    .modal-meta{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.75rem;}
+    .modal-title{font-family:'Playfair Display',serif;font-size:36px;font-weight:900;line-height:1.2;margin-bottom:0.75rem;}
+    .modal-byline{font-family:'DM Mono',monospace;font-size:12px;color:#999;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #e8e8e4;display:flex;align-items:center;gap:1.5rem;}
+    .modal-body{font-size:16px;line-height:1.85;color:#333;}
+    .divider{border:none;border-top:1px solid #e8e8e4;margin:2rem 0;}
+    .comment-section-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:1.5rem;}
+    .comment-form{background:#fff;border:1px solid #e8e8e4;padding:1.25rem;margin-bottom:1.5rem;}
+    .comment-form-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;color:#999;margin-bottom:1rem;}
+    .inp{width:100%;padding:9px 12px;border:1px solid #e0e0da;background:#fafaf8;font-family:'DM Sans',sans-serif;font-size:14px;color:#1a1a1a;outline:none;transition:border-color 0.15s;border-radius:2px;}
+    .inp:focus{border-color:#1a1a1a;background:#fff;}
+    .inp-group{margin-bottom:0.75rem;}
+    .inp-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;color:#999;display:block;margin-bottom:0.35rem;}
+    .submit-comment-btn{background:#1a1a1a;color:#fff;border:none;padding:10px 24px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-radius:2px;transition:background 0.15s;float:right;}
+    .submit-comment-btn:hover{background:#333;}
+    .comment-card{border-left:2px solid #e8e8e4;padding:0.75rem 1rem;margin-bottom:1rem;}
+    .comment-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:#1a1a1a;margin-bottom:0.35rem;}
+    .comment-body{font-size:14px;line-height:1.65;color:#555;}
+    .comment-time{font-family:'DM Mono',monospace;font-size:10px;color:#ccc;margin-top:0.4rem;}
+    .form-page{max-width:640px;margin:0 auto;padding:2.5rem 1.5rem;}
+    .form-eyebrow{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.18em;color:#999;margin-bottom:0.75rem;}
+    .form-title{font-family:'Playfair Display',serif;font-size:40px;font-weight:900;margin-bottom:0.25rem;}
+    .form-sub{color:#999;font-size:14px;margin-bottom:2rem;}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+    .big-submit{width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;letter-spacing:0.05em;cursor:pointer;border-radius:2px;transition:background 0.15s;margin-top:0.5rem;}
+    .big-submit:hover{background:#333;}
+    .empty{text-align:center;padding:5rem 0;color:#ccc;font-family:'Playfair Display',serif;font-style:italic;font-size:20px;}
   `
 
   if (showForm && !submitted) return (
-    <div className="forum-root">
-      <style>{styles}</style>
-      <div className="scanline" />
+    <div className="fr">
+      <style>{s}</style>
       <div className="topbar">
-        <a href="/" className="logo">THE LOCAL <span>//</span> CIRCUIT</a>
+        <a href="/" className="back-link">← THE LOCAL CIRCUIT</a>
+        <button className="post-btn" onClick={() => setShowForm(false)}>Back to Forum</button>
       </div>
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '2.5rem 1.5rem', position: 'relative', zIndex: 1 }}>
-        <button className="back-btn" onClick={() => setShowForm(false)}>← BACK TO SIGNAL BOARD</button>
-        <div className="section-header"><span className="pulse" />NEW TRANSMISSION</div>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#eef', marginBottom: '0.5rem' }}>Start a Discussion</h1>
-        <p style={{ color: '#445', fontSize: '14px', marginBottom: '2rem', fontFamily: 'Space Mono, monospace' }}>Broadcast your signal to students across Ohio.</p>
+      <div className="form-page">
+        <div className="form-eyebrow">FORUM · NEW DISCUSSION</div>
+        <h1 className="form-title">Start a Discussion</h1>
+        <p className="form-sub">Share what's happening in your community.</p>
         <form onSubmit={handleSubmitPost}>
-          <div className="grid2">
-            <div className="form-group"><label className="form-label">YOUR NAME</label><input required className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-            <div className="form-group"><label className="form-label">SCHOOL</label><input required className="form-input" value={form.school} onChange={e => setForm({...form, school: e.target.value})} /></div>
+          <div className="grid2" style={{marginBottom:'1rem'}}>
+            <div className="inp-group"><label className="inp-label">YOUR NAME</label><input required className="inp" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
+            <div className="inp-group"><label className="inp-label">SCHOOL</label><input required className="inp" value={form.school} onChange={e=>setForm({...form,school:e.target.value})} /></div>
           </div>
-          <div className="grid2">
-            <div className="form-group"><label className="form-label">CITY / COUNTY</label><input required className="form-input" value={form.city} onChange={e => setForm({...form, city: e.target.value})} /></div>
-            <div className="form-group"><label className="form-label">CATEGORY</label>
-              <select className="form-input" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-                {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+          <div className="grid2" style={{marginBottom:'1rem'}}>
+            <div className="inp-group"><label className="inp-label">CITY / COUNTY</label><input required className="inp" value={form.city} onChange={e=>setForm({...form,city:e.target.value})} /></div>
+            <div className="inp-group"><label className="inp-label">CATEGORY</label>
+              <select required className="inp" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>
+                {CATEGORIES.filter(c=>c!=='All').map(c=><option key={c}>{c}</option>)}
               </select>
             </div>
           </div>
-          <div className="form-group"><label className="form-label">TRANSMISSION TITLE</label><input required className="form-input" placeholder="What's the signal?" value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
-          <div className="form-group"><label className="form-label">YOUR MESSAGE</label><textarea required className="form-input" rows={7} value={form.body} onChange={e => setForm({...form, body: e.target.value})} style={{ resize: 'vertical', fontFamily: 'Syne, sans-serif' }} /></div>
-          <button type="submit" className="submit-btn" disabled={loading}>{loading ? 'TRANSMITTING...' : 'BROADCAST SIGNAL'}</button>
+          <div className="inp-group"><label className="inp-label">DISCUSSION TITLE</label><input required className="inp" placeholder="What's on your mind?" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} /></div>
+          <div className="inp-group"><label className="inp-label">YOUR THOUGHTS</label><textarea required className="inp" rows={8} value={form.body} onChange={e=>setForm({...form,body:e.target.value})} style={{resize:'vertical',fontFamily:'DM Sans,sans-serif'}} /></div>
+          <button type="submit" className="big-submit" disabled={loading}>{loading?'Posting...':'Post Discussion'}</button>
         </form>
       </div>
     </div>
   )
 
   if (selected) return (
-    <div className="forum-root">
-      <style>{styles}</style>
-      <div className="scanline" />
-      <div className="modal-bg">
+    <div className="fr">
+      <style>{s}</style>
+      <div className="modal">
         <div className="modal-inner">
-          <button className="back-btn" onClick={() => setSelected(null)}>← BACK TO SIGNAL BOARD</button>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-            <span className="cat-tag" style={{ color: CAT_COLORS[selected.category] || '#fff', borderColor: CAT_COLORS[selected.category] || '#fff' }}>{selected.category || 'OTHER'}</span>
-            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '11px', color: '#445' }}>{selected.city}</span>
-            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '11px', color: '#333' }}>{timeAgo(selected.created_at)}</span>
-            {(() => { const h = heatLevel(selected.upvotes || 0); return <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '10px', color: h.color, border: `1px solid ${h.color}`, padding: '2px 8px', borderRadius: '2px', letterSpacing: '0.15em' }}>{h.label}</span> })()}
+          <button className="modal-back" onClick={()=>setSelected(null)}>← BACK TO FORUM</button>
+          <div className="modal-meta">
+            <span className="cat-badge">{(selected.category||'OTHER').toUpperCase()}</span>
+            <span className="post-city">{selected.city}</span>
+            <span className="post-time">{timeAgo(selected.created_at)}</span>
           </div>
           <h1 className="modal-title">{selected.title}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '12px', color: '#445' }}>transmitted by {selected.name} · {selected.school}</span>
-            <button onClick={e => handleUpvote(e, selected)} className={`heat-btn ${votedIds.has(selected.id) ? 'voted' : ''}`} style={{ clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)', width: '32px', height: '32px' }}>▲</button>
-            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '16px', fontWeight: 700, color: heatLevel(selected.upvotes||0).color }}>{selected.upvotes || 0}</span>
+          <div className="modal-byline">
+            <span>By {selected.name} · {selected.school}</span>
+            <div style={{display:'flex',alignItems:'center',gap:'0.5rem',marginLeft:'auto'}}>
+              <button className={`vote-btn${votedIds.has(selected.id)?' voted':''}`} onClick={e=>handleUpvote(e,selected)}>▲</button>
+              <span style={{fontFamily:'DM Mono,monospace',fontSize:'14px',fontWeight:500}}>{selected.upvotes||0} votes</span>
+            </div>
           </div>
           <p className="modal-body">{selected.body}</p>
           <hr className="divider" />
-          <div className="section-header"><span className="pulse" />{comments.length} RESPONSES</div>
-          <form onSubmit={handleSubmitComment} style={{ marginBottom: '1.5rem' }}>
-            <div className="grid2" style={{ marginBottom: '0.75rem' }}>
-              <div><label className="form-label">YOUR NAME</label><input required className="form-input" value={commentName} onChange={e => setCommentName(e.target.value)} /></div>
-            </div>
-            <div className="form-group"><label className="form-label">YOUR RESPONSE</label><textarea required className="form-input" rows={3} value={comment} onChange={e => setComment(e.target.value)} style={{ resize: 'vertical', fontFamily: 'Syne, sans-serif' }} /></div>
-            <button type="submit" className="submit-btn" style={{ width: 'auto', padding: '10px 28px' }}>TRANSMIT RESPONSE</button>
-          </form>
-          {comments.map(c => (
+          <h2 className="comment-section-title">{comments.length} {comments.length===1?'Response':'Responses'}</h2>
+          <div className="comment-form">
+            <div className="comment-form-title">LEAVE A RESPONSE</div>
+            <form onSubmit={handleSubmitComment}>
+              <div className="inp-group"><label className="inp-label">YOUR NAME</label><input required className="inp" value={commentName} onChange={e=>setCommentName(e.target.value)} /></div>
+              <div className="inp-group"><label className="inp-label">YOUR RESPONSE</label><textarea ref={commentRef} required className="inp" rows={4} value={comment} onChange={e=>setComment(e.target.value)} style={{resize:'vertical',fontFamily:'DM Sans,sans-serif'}} /></div>
+              <div style={{overflow:'hidden'}}><button type="submit" className="submit-comment-btn">Post Response</button></div>
+            </form>
+          </div>
+          {comments.map(c=>(
             <div key={c.id} className="comment-card">
               <div className="comment-name">{c.name}</div>
               <div className="comment-body">{c.body}</div>
@@ -230,84 +248,99 @@ export default function ForumPage() {
   )
 
   return (
-    <div className="forum-root">
-      <style>{styles}</style>
-      <div className="scanline" />
+    <div className="fr">
+      <style>{s}</style>
       <div className="topbar">
-        <a href="/" className="logo">THE LOCAL <span>//</span> CIRCUIT</a>
-        <button className="new-post-btn" onClick={() => { setShowForm(true); setSubmitted(false) }}>+ NEW TRANSMISSION</button>
+        <a href="/" className="back-link">← THE LOCAL CIRCUIT</a>
+        <button className="post-btn" onClick={()=>{setShowForm(true);setSubmitted(false)}}>+ Start a Discussion</button>
+      </div>
+      <div className="hero">
+        <div className="hero-eyebrow">THE LOCAL CIRCUIT · FORUM</div>
+        <h1 className="hero-title">The Forum</h1>
+        <p className="hero-sub">Student voices on issues that matter.</p>
+        <div className="hero-stats">
+          <div className="stat"><div className="stat-n">{posts.length}</div><div className="stat-l">DISCUSSIONS</div></div>
+          <div className="stat"><div className="stat-n">{new Set(posts.map(p=>p.city).filter(Boolean)).size}</div><div className="stat-l">CITIES</div></div>
+          <div className="stat"><div className="stat-n">{new Set(posts.map(p=>p.school).filter(Boolean)).size}</div><div className="stat-l">SCHOOLS</div></div>
+          <div className="stat"><div className="stat-n">{posts.reduce((a,p)=>(a+(p.upvotes||0)),0)}</div><div className="stat-l">TOTAL VOTES</div></div>
+        </div>
       </div>
       <div className="layout">
-        <div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h1 style={{ fontSize: '36px', fontWeight: 800, color: '#eef', marginBottom: '0.25rem' }}>Signal Board</h1>
-            <p style={{ color: '#445', fontSize: '13px', fontFamily: 'Space Mono, monospace', letterSpacing: '0.05em' }}>Student transmissions from across Ohio</p>
-          </div>
-          <div className="cat-bar">
-            {CATEGORIES.map(c => (
-              <button key={c} className={`cat-btn ${category === c ? 'active' : ''}`}
-                style={{ '--cat-color': CAT_COLORS[c], '--cat-color-alpha': CAT_COLORS[c] + '33' } as any}
-                onClick={() => setCategory(c)}>{c.toUpperCase()}</button>
-            ))}
-          </div>
-          {filtered.length === 0 ? (
-            <div className="empty-state">NO SIGNALS IN THIS CHANNEL YET.<br /><br />
-              <button className="new-post-btn" onClick={() => { setShowForm(true); setSubmitted(false) }}>BE THE FIRST</button>
+        <div className="main">
+          <div className="controls">
+            <div className="cat-pills">
+              {CATEGORIES.map(c=><button key={c} className={`cat-pill${category===c?' on':''}`} onClick={()=>setCategory(c)}>{c}</button>)}
             </div>
-          ) : filtered.map(p => {
-            const heat = heatLevel(p.upvotes || 0)
-            const catColor = CAT_COLORS[p.category] || '#fff'
-            return (
-              <div key={p.id} className="post-card" style={{ '--cat-color': catColor, boxShadow: heat.glow } as any} onClick={() => handleSelectPost(p)}>
-                <div className="post-header">
-                  <div style={{ flex: 1 }}>
-                    <div className="post-meta">
-                      <span className="cat-tag" style={{ color: catColor, borderColor: catColor + '88' }}>{(p.category || 'OTHER').toUpperCase()}</span>
-                      <span className="city-tag">{p.city}</span>
-                      <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '10px', color: heat.color, border: `1px solid ${heat.color}55`, padding: '1px 6px', borderRadius: '2px', letterSpacing: '0.12em' }}>{heat.label}</span>
-                      <span className="time-tag">{timeAgo(p.created_at)}</span>
-                    </div>
-                    <div className="post-title">{p.title}</div>
-                    <div className="post-author">by {p.name} · {p.school}</div>
-                  </div>
-                  <div className="heat-col">
-                    <button className={`heat-btn ${votedIds.has(p.id) ? 'voted' : ''}`} onClick={e => handleUpvote(e, p)}>▲</button>
-                    <span className="heat-count" style={{ color: heat.color }}>{p.upvotes || 0}</span>
-                    <span className="heat-label" style={{ color: heat.color }}>{heat.label}</span>
-                  </div>
-                </div>
+            <div className="sort-btns">
+              <button className={`sort-btn${sortBy==='hot'?' on':''}`} onClick={()=>setSortBy('hot')}>TOP</button>
+              <button className={`sort-btn${sortBy==='new'?' on':''}`} onClick={()=>setSortBy('new')}>NEW</button>
+            </div>
+          </div>
+          {filtered.length===0 ? (
+            <div className="empty">No discussions yet in this category.<br/><br/>
+              <button className="post-btn" style={{fontFamily:'DM Sans,sans-serif'}} onClick={()=>{setShowForm(true);setSubmitted(false)}}>Be the first to post</button>
+            </div>
+          ) : filtered.map(p=>(
+            <div key={p.id} className="post-card" onClick={()=>handleSelectPost(p)}>
+              <div className="vote-col">
+                <button className={`vote-btn${votedIds.has(p.id)?' voted':''}`} onClick={e=>handleUpvote(e,p)}>▲</button>
+                <span className="vote-count">{p.upvotes||0}</span>
               </div>
-            )
-          })}
+              <div className="post-content">
+                <div className="post-top">
+                  <span className="cat-badge">{(p.category||'OTHER').toUpperCase()}</span>
+                  <span className="post-city">{p.city}</span>
+                  <span className="post-time">{timeAgo(p.created_at)}</span>
+                  {(p.upvotes||0)>=10 && <span className="hot-tag" style={{background:'#fff8f0',color:'#e8630a',border:'1px solid #f5d9c0'}}>🔥 HOT</span>}
+                  {(p.upvotes||0)>=20 && <span className="hot-tag" style={{background:'#fff0f5',color:'#d6226a',border:'1px solid #f5c0d5'}}>VIRAL</span>}
+                </div>
+                <div className="post-title">{p.title}</div>
+                <div className="post-author">by {p.name} · {p.school}</div>
+                {p.body && <div className="post-preview">{p.body}</div>}
+              </div>
+            </div>
+          ))}
         </div>
         <div className="sidebar">
-          <div className="sidebar-card">
-            <div className="sidebar-title"><span className="pulse" />LIVE STATS</div>
-            <div className="stat-row"><span className="stat-label">Total signals</span><span className="stat-val">{posts.length}</span></div>
-            <div className="stat-row"><span className="stat-label">Active cities</span><span className="stat-val">{new Set(posts.map(p => p.city).filter(Boolean)).size}</span></div>
-            <div className="stat-row"><span className="stat-label">Top category</span><span className="stat-val" style={{ fontSize: '10px' }}>{
-              (() => { const counts: Record<string,number> = {}; posts.forEach(p => { if(p.category) counts[p.category] = (counts[p.category]||0)+1 }); return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—' })()
-            }</span></div>
-          </div>
-          <div className="sidebar-card">
-            <div className="sidebar-title">ACTIVE CITIES</div>
-            {topCities.length === 0 ? <p style={{ fontSize: '12px', color: '#333', fontFamily: 'Space Mono, monospace' }}>No data yet</p> :
-              topCities.map(city => (
-                <div key={city} className="city-item" onClick={() => { setCategory('All') }}>
-                  <span className="city-name">{city}</span>
-                  <span className="city-count">{posts.filter(p => p.city === city).length} signals</span>
+          {trending.length > 0 && (
+            <div className="sb-section">
+              <div className="sb-title">TRENDING NOW</div>
+              {trending.map((p,i)=>(
+                <div key={p.id} className="trending-item" onClick={()=>handleSelectPost(p)}>
+                  <div className="trending-num">0{i+1}</div>
+                  <div className="trending-title">{p.title}</div>
+                  <div className="trending-meta">{p.upvotes||0} votes · {p.city}</div>
                 </div>
-              ))
-            }
+              ))}
+            </div>
+          )}
+          {topCities.length > 0 && (
+            <div className="sb-section">
+              <div className="sb-title">MOST ACTIVE CITIES</div>
+              {topCities.map(([city,count])=>(
+                <div key={city} className="city-row">
+                  <span className="city-n">{city}</span>
+                  <span className="city-c">{count} post{count!==1?'s':''}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="sb-section">
+            <div className="sb-title">CATEGORIES</div>
+            {CATEGORIES.filter(c=>c!=='All').map(c=>{
+              const count = posts.filter(p=>p.category===c).length
+              return count > 0 ? (
+                <div key={c} className="city-row" style={{cursor:'pointer'}} onClick={()=>setCategory(c)}>
+                  <span className="city-n">{c}</span>
+                  <span className="city-c">{count}</span>
+                </div>
+              ) : null
+            })}
           </div>
-          <div className="sidebar-card">
-            <div className="sidebar-title">HEAT LEGEND</div>
-            {[{label:'VIRAL',color:'#f72585',desc:'20+ signals'},{label:'HOT',color:'#f8961e',desc:'10+ signals'},{label:'RISING',color:'#00f5d4',desc:'5+ signals'},{label:'NEW',color:'#555',desc:'Just posted'}].map(h => (
-              <div key={h.label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #0f1520' }}>
-                <span style={{ fontFamily: 'Space Mono, monospace', fontSize: '10px', color: h.color, border: `1px solid ${h.color}`, padding: '2px 6px', borderRadius: '2px', letterSpacing: '0.1em', minWidth: '52px', textAlign: 'center' }}>{h.label}</span>
-                <span style={{ fontSize: '12px', color: '#444' }}>{h.desc}</span>
-              </div>
-            ))}
+          <div style={{background:'#fff',border:'1px solid #e8e8e4',padding:'1.25rem',textAlign:'center'}}>
+            <p style={{fontFamily:'Playfair Display,serif',fontSize:'16px',fontWeight:700,marginBottom:'0.4rem'}}>Have something to say?</p>
+            <p style={{fontSize:'12px',color:'#999',marginBottom:'1rem'}}>Start a discussion and reach students across Ohio.</p>
+            <button className="post-btn" style={{width:'100%'}} onClick={()=>{setShowForm(true);setSubmitted(false)}}>+ Post Discussion</button>
           </div>
         </div>
       </div>
