@@ -7,12 +7,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const CATEGORIES = ['All', 'Education', 'Housing', 'Environment', 'Politics', 'Transit', 'Safety', 'Other']
+
 export default function ForumPage() {
   const [posts, setPosts] = useState<any[]>([])
+  const [category, setCategory] = useState('All')
   const [selected, setSelected] = useState<any>(null)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ name: '', school: '', city: '', title: '', body: '' })
+  const [form, setForm] = useState({ name: '', school: '', city: '', title: '', body: '', category: 'Other' })
   const [submitted, setSubmitted] = useState(false)
   const [comment, setComment] = useState('')
   const [commentName, setCommentName] = useState('')
@@ -35,10 +38,18 @@ export default function ForumPage() {
     fetchComments(post.id)
   }
 
+  const handleUpvote = async (e: React.MouseEvent, post: any) => {
+    e.stopPropagation()
+    const newVotes = (post.upvotes || 0) + 1
+    await supabase.from('forum_posts').update({ upvotes: newVotes }).eq('id', post.id)
+    setPosts(posts.map(p => p.id === post.id ? { ...p, upvotes: newVotes } : p))
+    if (selected?.id === post.id) setSelected({ ...selected, upvotes: newVotes })
+  }
+
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.from('forum_posts').insert([form])
+    const { error } = await supabase.from('forum_posts').insert([{ ...form, upvotes: 0 }])
     setLoading(false)
     if (!error) { setSubmitted(true); fetchPosts() }
     else alert('Error: ' + error.message)
@@ -47,93 +58,142 @@ export default function ForumPage() {
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!comment.trim() || !commentName.trim()) return
-    await supabase.from('forum_comments').insert([{ post_id: selected.id, name: commentName, body: comment }])
-    setComment('')
-    setCommentName('')
-    fetchComments(selected.id)
+    const { error } = await supabase.from('forum_comments').insert([{ post_id: selected.id, name: commentName, body: comment }])
+    if (!error) { setComment(''); setCommentName(''); fetchComments(selected.id) }
+    else alert('Error posting comment: ' + error.message)
+  }
+
+  const filtered = category === 'All' ? posts : posts.filter(p => p.category === category)
+  const timeAgo = (d: string) => {
+    const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
+    if (diff < 60) return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`
+    return `${Math.floor(diff/86400)}d ago`
   }
 
   if (showForm && !submitted) return (
-    <main style={{ fontFamily: 'Georgia, serif', maxWidth: '700px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <button onClick={() => setShowForm(false)} style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '2rem' }}>← Back to Forum</button>
-      <h1 style={{ fontSize: '40px', fontWeight: 900, marginBottom: '0.25rem' }}>Start a Discussion</h1>
-      <p style={{ fontStyle: 'italic', color: '#666', marginBottom: '2rem' }}>Share an issue or question with students across Ohio.</p>
-      <form onSubmit={handleSubmitPost} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {[
-          { label: 'Your Name', key: 'name', placeholder: '' },
-          { label: 'School', key: 'school', placeholder: 'e.g. Ohio State University' },
-          { label: 'City / County', key: 'city', placeholder: 'e.g. Columbus, Franklin County' },
-          { label: 'Discussion Title', key: 'title', placeholder: 'e.g. Should Columbus expand its public transit?' },
-        ].map(f => (
-          <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666' }}>{f.label}</label>
-            <input required value={(form as any)[f.key]} placeholder={f.placeholder} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={{ padding: '10px 12px', border: '0.5px solid #ccc', borderRadius: '8px', fontSize: '15px', fontFamily: 'Georgia, serif' }} />
+    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '700px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <button onClick={() => setShowForm(false)} style={{ fontSize: '13px', color: '#666', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}>← Back to Forum</button>
+      <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '0.25rem' }}>Start a Discussion</h1>
+      <p style={{ color: '#888', marginBottom: '2rem', fontSize: '14px' }}>Share what's happening in your community.</p>
+      <form onSubmit={handleSubmitPost} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>Your Name</label>
+            <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px' }} />
           </div>
-        ))}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666' }}>Your Thoughts</label>
-          <textarea required rows={8} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} style={{ padding: '10px 12px', border: '0.5px solid #ccc', borderRadius: '8px', fontSize: '15px', fontFamily: 'Georgia, serif', resize: 'vertical' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>School</label>
+            <input required value={form.school} onChange={e => setForm({...form, school: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px' }} />
+          </div>
         </div>
-        <button type="submit" disabled={loading} style={{ padding: '14px', background: '#111', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>City / County</label>
+            <input required value={form.city} onChange={e => setForm({...form, city: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>Category</label>
+            <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: '#fff' }}>
+              {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>Title</label>
+          <input required value={form.title} placeholder="e.g. Should Columbus expand public transit?" onChange={e => setForm({...form, title: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px' }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: '#555' }}>Your Thoughts</label>
+          <textarea required rows={7} value={form.body} onChange={e => setForm({...form, body: e.target.value})} style={{ padding: '9px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', resize: 'vertical', fontFamily: 'system-ui, sans-serif' }} />
+        </div>
+        <button type="submit" disabled={loading} style={{ padding: '12px', background: '#ff4500', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
           {loading ? 'Posting...' : 'Post Discussion'}
         </button>
       </form>
     </main>
   )
 
-  if (showForm && submitted) return (
-    <main style={{ fontFamily: 'Georgia, serif', maxWidth: '700px', margin: '4rem auto', padding: '2rem', textAlign: 'center' }}>
-      <h1 style={{ fontSize: '40px', fontWeight: 900, marginBottom: '1rem' }}>Posted!</h1>
-      <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '2rem' }}>Your discussion is now live on the forum.</p>
-      <button onClick={() => { setShowForm(false); setSubmitted(false) }} style={{ padding: '12px 24px', background: '#111', color: '#fff', borderRadius: '8px', border: 'none', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>Back to Forum</button>
-    </main>
-  )
-
   if (selected) return (
-    <main style={{ fontFamily: 'Georgia, serif', maxWidth: '700px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <button onClick={() => setSelected(null)} style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '2rem' }}>← Back to Forum</button>
-      <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666' }}>{selected.city} · {selected.school}</p>
-      <h1 style={{ fontSize: '36px', fontWeight: 900, margin: '0.5rem 0' }}>{selected.title}</h1>
-      <p style={{ fontSize: '13px', color: '#666', marginBottom: '1.5rem' }}>By {selected.name}</p>
-      <p style={{ fontSize: '16px', lineHeight: 1.8, marginBottom: '2rem', paddingBottom: '2rem', borderBottom: '0.5px solid #ddd' }}>{selected.body}</p>
-
-      <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '1.25rem' }}>Responses ({comments.length})</h3>
-      {comments.map(c => (
-        <div key={c.id} style={{ paddingBottom: '1rem', marginBottom: '1rem', borderBottom: '0.5px solid #eee' }}>
-          <p style={{ fontSize: '13px', fontWeight: 700, marginBottom: '0.25rem' }}>{c.name}</p>
-          <p style={{ fontSize: '15px', lineHeight: 1.7 }}>{c.body}</p>
+    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '740px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <button onClick={() => setSelected(null)} style={{ fontSize: '13px', color: '#666', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}>← Back to Forum</button>
+      <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: '0' }}>
+          <div style={{ background: '#f8f8f8', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', minWidth: '50px' }}>
+            <button onClick={e => handleUpvote(e, selected)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#ff4500' }}>▲</button>
+            <span style={{ fontSize: '14px', fontWeight: 700 }}>{selected.upvotes || 0}</span>
+          </div>
+          <div style={{ padding: '1rem 1.25rem', flex: 1 }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '11px', background: '#ff4500', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{selected.category || 'Other'}</span>
+              <span style={{ fontSize: '12px', color: '#888' }}>{selected.city} · {selected.school}</span>
+              <span style={{ fontSize: '12px', color: '#bbb' }}>{timeAgo(selected.created_at)}</span>
+            </div>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '0.5rem' }}>{selected.title}</h1>
+            <p style={{ fontSize: '13px', color: '#888', marginBottom: '1rem' }}>posted by {selected.name}</p>
+            <p style={{ fontSize: '15px', lineHeight: 1.7, color: '#333' }}>{selected.body}</p>
+          </div>
         </div>
-      ))}
+      </div>
 
-      <form onSubmit={handleSubmitComment} style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <input required placeholder="Your name" value={commentName} onChange={e => setCommentName(e.target.value)} style={{ padding: '10px 12px', border: '0.5px solid #ccc', borderRadius: '8px', fontSize: '15px', fontFamily: 'Georgia, serif' }} />
-        <textarea required rows={4} placeholder="Add your response..." value={comment} onChange={e => setComment(e.target.value)} style={{ padding: '10px 12px', border: '0.5px solid #ccc', borderRadius: '8px', fontSize: '15px', fontFamily: 'Georgia, serif', resize: 'vertical' }} />
-        <button type="submit" style={{ padding: '12px', background: '#111', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>Post Response</button>
-      </form>
+      <div style={{ marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '1rem', color: '#555' }}>{comments.length} Comment{comments.length !== 1 ? 's' : ''}</h3>
+        <form onSubmit={handleSubmitComment} style={{ background: '#f8f8f8', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <input required placeholder="Your name" value={commentName} onChange={e => setCommentName(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: '#fff' }} />
+          <textarea required rows={3} placeholder="What do you think?" value={comment} onChange={e => setComment(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', resize: 'vertical', fontFamily: 'system-ui, sans-serif', background: '#fff' }} />
+          <button type="submit" style={{ alignSelf: 'flex-end', padding: '8px 20px', background: '#ff4500', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Comment</button>
+        </form>
+        {comments.map(c => (
+          <div key={c.id} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '1rem', marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '13px', fontWeight: 700, marginBottom: '0.4rem', color: '#ff4500' }}>{c.name}</p>
+            <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#333' }}>{c.body}</p>
+            <p style={{ fontSize: '11px', color: '#bbb', marginTop: '0.5rem' }}>{timeAgo(c.created_at)}</p>
+          </div>
+        ))}
+      </div>
     </main>
   )
 
   return (
-    <main style={{ fontFamily: 'Georgia, serif', maxWidth: '900px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <a href="/" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', textDecoration: 'none' }}>← The Local Circuit</a>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', margin: '1rem 0 2rem' }}>
+    <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '740px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <a href="/" style={{ fontSize: '13px', color: '#888', textDecoration: 'none' }}>← The Local Circuit</a>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0 1.25rem' }}>
         <div>
-          <h1 style={{ fontSize: '56px', fontWeight: 900, margin: 0 }}>Forum</h1>
-          <p style={{ fontStyle: 'italic', color: '#666', margin: '0.25rem 0 0' }}>Student discussions on local issues across Ohio.</p>
+          <h1 style={{ fontSize: '32px', fontWeight: 800, margin: 0 }}>Forum</h1>
+          <p style={{ color: '#888', margin: '0.25rem 0 0', fontSize: '14px' }}>Student discussions on local issues across Ohio</p>
         </div>
-        <button onClick={() => setShowForm(true)} style={{ padding: '12px 24px', background: '#111', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>Start a Discussion</button>
+        <button onClick={() => { setShowForm(true); setSubmitted(false) }} style={{ padding: '10px 20px', background: '#ff4500', color: '#fff', border: 'none', borderRadius: '20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>+ New Post</button>
       </div>
-      {posts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem 0', color: '#999' }}>
-          <p style={{ fontStyle: 'italic', fontSize: '18px' }}>No discussions yet. Be the first.</p>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+        {CATEGORIES.map(c => (
+          <button key={c} onClick={() => setCategory(c)} style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid', borderColor: category === c ? '#ff4500' : '#e0e0e0', background: category === c ? '#ff4500' : '#fff', color: category === c ? '#fff' : '#555', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>{c}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem 0', color: '#aaa' }}>
+          <p style={{ fontSize: '18px' }}>No posts yet in this category.</p>
+          <button onClick={() => { setShowForm(true); setSubmitted(false) }} style={{ marginTop: '1rem', padding: '10px 24px', background: '#ff4500', color: '#fff', border: 'none', borderRadius: '20px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>Be the first to post</button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {posts.map(p => (
-            <div key={p.id} onClick={() => handleSelectPost(p)} style={{ padding: '1.25rem 0', borderBottom: '0.5px solid #ddd', cursor: 'pointer' }}>
-              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', margin: '0 0 0.3rem' }}>{p.city} · {p.school}</p>
-              <h3 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 0.3rem' }}>{p.title}</h3>
-              <p style={{ fontSize: '13px', color: '#666' }}>By {p.name}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {filtered.map(p => (
+            <div key={p.id} onClick={() => handleSelectPost(p)} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', display: 'flex', cursor: 'pointer', overflow: 'hidden', transition: 'border-color 0.15s' }}>
+              <div style={{ background: '#f8f8f8', padding: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', minWidth: '50px' }}>
+                <button onClick={e => handleUpvote(e, p)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#ccc', lineHeight: 1 }}>▲</button>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#555' }}>{p.upvotes || 0}</span>
+              </div>
+              <div style={{ padding: '0.75rem 1rem', flex: 1 }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', background: '#ff4500', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{p.category || 'Other'}</span>
+                  <span style={{ fontSize: '12px', color: '#888' }}>{p.city}</span>
+                  <span style={{ fontSize: '12px', color: '#bbb' }}>{timeAgo(p.created_at)}</span>
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 0.25rem', color: '#222' }}>{p.title}</h3>
+                <p style={{ fontSize: '12px', color: '#999', margin: 0 }}>by {p.name} · {p.school}</p>
+              </div>
             </div>
           ))}
         </div>
